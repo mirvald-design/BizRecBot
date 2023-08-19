@@ -1,16 +1,10 @@
 import logging
-from aiogram import Bot, Dispatcher, types
-from aiogram.contrib.middlewares.logging import LoggingMiddleware
-from aiogram.types import ParseMode
+import telebot
+
 
 API_TOKEN = '6446989431:AAFUgeJoHmL57QiknLMTVDfFDS6zicoERTY'
 
-logging.basicConfig(level=logging.INFO)
-
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
-dp.middleware.setup(LoggingMiddleware())
-
+bot = telebot.TeleBot(API_TOKEN)
 
 питання = [
     "Яке ваше хобі?",
@@ -27,41 +21,46 @@ dp.middleware.setup(LoggingMiddleware())
 відповіді = {}
 
 
-@dp.message_handler(commands=['start'])
-async def start_command(message: types.Message):
-    global відповіді
-    відповіді[message.chat.id] = []
-    await message.reply("Привіт! Давайте з'ясуємо, який бізнес вам підходить. Відповідайте на кілька запитань.")
-    await ask_question(0, message.chat.id)
+@bot.message_handler(commands=['start'])
+def start(message):
+    chat_id = message.chat.id
+    відповіді[chat_id] = []
+    bot.send_message(
+        chat_id, "Привіт! Давайте визначимо, який бізнес вам підходить. Відповідайте на декілька питань.")
+    задати_питання(0, chat_id)
 
 
-async def ask_question(номер_питання, chat_id):
-    розмітка = types.ReplyKeyboardMarkup(resize_keyboard=True, selective=True)
+def задати_питання(номер_питання, chat_id):
+    розмітка = telebot.types.ReplyKeyboardMarkup(
+        resize_keyboard=True, selective=True)
     варіанти_список = варіанти[номер_питання]
     for варіант in варіанти_список:
         розмітка.add(варіант)
-    await bot.send_message(chat_id, питання[номер_питання], reply_markup=розмітка)
+    bot.send_message(chat_id, питання[номер_питання], reply_markup=розмітка)
 
 
-@dp.message_handler(lambda message: message.text in варіанти[0], state=None)
-async def answer_question_1(message: types.Message):
-    відповіді[message.chat.id].append(message.text)
-    await ask_question(1, message.chat.id)
+@bot.message_handler(func=lambda message: message.text in варіанти[0])
+def відповісти_на_питання_1(message):
+    chat_id = message.chat.id
+    відповіді[chat_id].append(message.text)
+    задати_питання(1, chat_id)
 
 
-@dp.message_handler(lambda message: message.text in варіанти[1], state=None)
-async def answer_question_2(message: types.Message):
-    відповіді[message.chat.id].append(message.text)
-    await ask_question(2, message.chat.id)
+@bot.message_handler(func=lambda message: message.text in варіанти[1])
+def відповісти_на_питання_2(message):
+    chat_id = message.chat.id
+    відповіді[chat_id].append(message.text)
+    задати_питання(2, chat_id)
 
 
-@dp.message_handler(lambda message: message.text in варіанти[2], state=None)
-async def answer_question_3(message: types.Message):
-    відповіді[message.chat.id].append(message.text)
-    # Реалізуйте вашу логіку рекомендацій тут
-    рекомендація = отримати_рекомендацію(відповіді[message.chat.id])
-    await bot.send_message(message.chat.id, f"На основі ваших відповідей, рекомендуємо бізнес: {рекомендація}")
-    del відповіді[message.chat.id]
+@bot.message_handler(func=lambda message: message.text in варіанти[2])
+def відповісти_на_питання_3(message):
+    chat_id = message.chat.id
+    відповіді[chat_id].append(message.text)
+    рекомендація = отримати_рекомендацію(відповіді[chat_id])
+    bot.send_message(
+        chat_id, f"На основі ваших відповідей рекомендуємо бізнес: {рекомендація}")
+    del відповіді[chat_id]
 
 
 def отримати_рекомендацію(відповіді):
@@ -69,10 +68,9 @@ def отримати_рекомендацію(відповіді):
         return "Магазин спортивних товарів"
     elif відповіді[0] == "Малювання" and відповіді[1] == "Технології":
         return "Графічний дизайн та ілюстрації для технологічних компаній"
-    # Додайте інші умови для інших варіантів відповідей
+    # Додайте інші умови для інших рекомендацій
     return "Немає конкретної рекомендації"
 
 
 if __name__ == '__main__':
-    from aiogram import executor
-    executor.start_polling(dp, skip_updates=True)
+    bot.polling()
